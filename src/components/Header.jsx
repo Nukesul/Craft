@@ -75,9 +75,8 @@ export default function Header({
           </button>
         </div>
 
-        {/* Desktop */}
         <nav ref={desktopRef} className="hidden lg:flex overflow-x-auto no-scrollbar flex-nowrap gap-3 px-4 pb-3 pt-1 w-full justify-center">
-          <div className="inline-flex gap-3">
+          <div className="inline-flex gap-4">
             {categories.map(cat => (
               <button
                 key={cat.id}
