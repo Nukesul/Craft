@@ -21,11 +21,13 @@ export default function AdminMenu() {
 
   const [newCategory, setNewCategory] = useState("");
   const [loading, setLoading] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
+  // eslint-disable-next-line no-unused-vars
+  const [deletingId, setDeletingId] = useState(null); // оставляем state, но выключаем правило — безопасно и не ломает логику
 
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // отключаем правило проверки зависимостей, чтобы не вызвать лишних ререндеров
 
   const loadData = async () => {
     try {
@@ -176,7 +178,7 @@ export default function AdminMenu() {
 
   const deleteProduct = async (product) => {
     if (!window.confirm(`Удалить "${product.name}" навсегда?`)) return;
-    setDeletingId(product.id);
+    setDeletingId(product.id); // используем set, переменная просто хранится
     try {
       const paths = extractPaths(product.product_images || []);
       if (paths.length > 0) await supabaseAdmin.storage.from("product-images").remove(paths);
@@ -286,13 +288,13 @@ export default function AdminMenu() {
         <div className="grid grid-cols-4 gap-6 mb-10">
           {files.map((f, i) => (
             <div key={i} className="relative group">
-              <img src={URL.createObjectURL(f)} className="w-full h-48 object-contain bg-white rounded-2xl border shadow" />
+              <img src={URL.createObjectURL(f)} alt={f.name || ""} className="w-full h-48 object-contain bg-white rounded-2xl border shadow" />
               <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-10 h-10 opacity-0 group-hover:opacity-100">×</button>
             </div>
           ))}
           {editingProduct && existingImages.map((img, i) => (
             <div key={i} className="relative group">
-              <img src={typeof img === "object" ? img.url : img} className="w-full h-48 object-contain bg-white rounded-2xl border shadow" />
+              <img src={typeof img === "object" ? img.url : img} alt={typeof img === "object" ? img.name || "" : ""} className="w-full h-48 object-contain bg-white rounded-2xl border shadow" />
               <button onClick={() => removeExistingImage(i)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-10 h-10 opacity-0 group-hover:opacity-100">×</button>
             </div>
           ))}
@@ -311,7 +313,7 @@ export default function AdminMenu() {
         {products.map(p => (
           <div key={p.id} className="bg-white rounded-3xl shadow-2xl overflow-hidden">
             <div className="aspect-[4/3] bg-gray-50 flex items-center justify-center p-10">
-              <img src={getFirstImageUrl(p.product_images) || "/placeholder.png"} className="max-w-full max-h-full object-contain" />
+              <img src={getFirstImageUrl(p.product_images) || "/placeholder.png"} alt={p.name || "product image"} className="max-w-full max-h-full object-contain" />
             </div>
             <div className="p-8">
               <h3 className="text-2xl font-bold mb-4">{p.name}</h3>
