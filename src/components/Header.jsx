@@ -113,7 +113,7 @@ export default function Header({
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdminEnter()} placeholder="Пароль" className="w-full px-4 py-3 border rounded-lg focus:border-amber-500 outline-none" />
             <div className="flex gap-3 mt-5">
               <button onClick={handleAdminEnter} className="flex-1 bg-amber-500 text-white py-3 rounded-lg hover:bg-amber-600">Войти</button>
-              <button onClick={() => { setShowPassword(false); setPassword(""); }} className="flex-1 bg-gray-200 py-3 rounded-lg hover:bg-gray-300">Отмена</button>
+              <button onClick={() => { setShowPassword(false); setPassword(""); }} className="flex-1 bg-gray-200 py-3 rounded-lg hover:bg-gray-300">Отмена ва</button>
             </div>
           </div>
         </div>

@@ -10,7 +10,7 @@ export default function AdminMenu() {
   const [form, setForm] = useState({
     name: "",
     description: "",
-    category_id: "",
+    category_id: "", // ← всегда строка, никогда null!
   });
 
   const [variants, setVariants] = useState([]);
@@ -21,10 +21,12 @@ export default function AdminMenu() {
 
   const [newCategory, setNewCategory] = useState("");
   const [loading, setLoading] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadData = async () => {
@@ -76,10 +78,9 @@ export default function AdminMenu() {
     return { url: publicUrl, path: fileName };
   };
 
-  // === 追加 ===
   const addProduct = async () => {
     if (!form.name.trim() || !form.category_id || variants.length === 0) {
-      return alert("商品名、カテゴリー、バリエーションを入力してください。");
+      return alert("商品名、カテゴリー、少なくとも1つのバリエーションを入力してください");
     }
 
     setLoading(true);
@@ -110,29 +111,29 @@ export default function AdminMenu() {
       setLoading(false);
     }
   };
-  const editProduct = (p) => {
-    setEditingProduct(p.id);
+
+  const startEdit = (product) => {
+    setEditingProduct(product);
     setForm({
-      name: p.name,
-      description: p.description || "",
-      category_id: p.category_id,
+      name: product.name,
+      description: product.description || "",
+      category_id: product.category_id || "",
     });
-    setVariants(p.variants || []);
-    setExistingImages(p.product_images || []);
+    setVariants(product.variants || []);
+    setExistingImages(product.product_images || []);
     setFiles([]);
   };
 
-  const updateProduct = async () => {
-    if (!form.name.trim() || !form.category_id) {
-      return alert("必要な項目を入力してください。");
+  const saveEdit = async () => {
+    if (!form.name.trim() || !form.category_id || variants.length === 0) {
+      return alert("全ての項目を入力してください");
     }
 
     setLoading(true);
     try {
-      const uploaded = [];
-      for (const file of files) uploaded.push(await uploadImage(file));
-
-      const updatedImages = [...existingImages, ...uploaded];
+      const newImages = [];
+      for (const file of files) newImages.push(await uploadImage(file));
+      const finalImages = [...existingImages, ...newImages];
 
       const { error } = await supabaseAdmin
         .from("products")
@@ -140,340 +141,195 @@ export default function AdminMenu() {
           name: form.name.trim(),
           description: form.description.trim() || null,
           category_id: form.category_id,
-          product_images: updatedImages.length ? updatedImages : null,
+          product_images: finalImages.length ? finalImages : null,
           variants: variants.map(v => ({ size: v.size.trim(), price: Number(v.price) })),
         })
-        .eq("id", editingProduct);
+        .eq("id", editingProduct.id);
 
       if (error) throw error;
 
-      loadData();
+      setProducts(prev => prev.map(p =>
+        p.id === editingProduct.id
+          ? { ...p, ...form, product_images: finalImages, variants }
+          : p
+      ));
+
+      setEditingProduct(null);
       resetForm();
-      alert("商品が更新されました！");
+      alert("保存しました！");
     } catch (err) {
       console.error(err);
-      alert("更新エラー");
+      alert("保存エラー");
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteProduct = async (id) => {
-    if (!window.confirm("本当に削除しますか？")) return;
+  const addVariant = () => {
+    if (!newVariant.size.trim() || !newVariant.price) return;
+    setVariants(prev => [...prev, { size: newVariant.size.trim(), price: Number(newVariant.price) }]);
+    setNewVariant({ size: "", price: "" });
+  };
 
-    setDeletingId(id);
+  const removeVariant = (i) => setVariants(prev => prev.filter((_, idx) => idx !== i));
+  const removeExistingImage = (i) => setExistingImages(prev => prev.filter((_, idx) => idx !== i));
+
+  const deleteProduct = async (product) => {
+    if (!window.confirm(`「${product.name}」を完全に削除しますか？`)) return;
+    setDeletingId(product.id);
     try {
-      const product = products.find(p => p.id === id);
-      const paths = extractPaths(product.product_images);
-
-      if (paths.length > 0) {
-        await supabaseAdmin.storage.from("product-images").remove(paths);
-      }
-
-      const { error } = await supabaseAdmin.from("products").delete().eq("id", id);
-      if (error) throw error;
-
-      setProducts(prev => prev.filter(p => p.id !== id));
-      alert("削除しました。");
+      const paths = extractPaths(product.product_images || []);
+      if (paths.length > 0) await supabaseAdmin.storage.from("product-images").remove(paths);
+      await supabaseAdmin.from("products").delete().eq("id", product.id);
+      setProducts(prev => prev.filter(p => p.id !== product.id));
+      alert("削除しました！");
     } catch (err) {
-      console.error(err);
       alert("削除エラー");
     } finally {
       setDeletingId(null);
     }
   };
 
-  const removeExistingImage = async (index) => {
-    const img = existingImages[index];
-    if (!img) return;
+  const addCategory = async () => {
+    const name = newCategory.trim();
+    if (!name) return alert("カテゴリー名を入力してください");
+    const { data } = await supabaseAdmin.from("categories").insert([{ name }]).select().single();
+    setCategories(prev => [...prev, data]);
+    setNewCategory("");
+  };
 
-    if (!window.confirm("この画像を削除しますか？")) return;
-
-    try {
-      const path = img.path;
-      if (path) {
-        await supabaseAdmin.storage.from("product-images").remove([path]);
-      }
-
-      const updated = existingImages.filter((_, i) => i !== index);
-      setExistingImages(updated);
-
-      if (editingProduct) {
-        await supabaseAdmin
-          .from("products")
-          .update({ product_images: updated })
-          .eq("id", editingProduct);
-      }
-    } catch (err) {
-      console.error(err);
-      alert("画像削除エラー");
-    }
+  const deleteCategory = async (cat) => {
+    if (products.some(p => p.category_id === cat.id)) return alert("このカテゴリーには商品があります！");
+    if (!window.confirm(`「${cat.name}」を削除しますか？`)) return;
+    await supabaseAdmin.from("categories").delete().eq("id", cat.id);
+    setCategories(prev => prev.filter(c => c.id !== cat.id));
   };
 
   const resetForm = () => {
-    setEditingProduct(null);
-    setForm({ name: "", description: "", category_id: categories[0]?.id || "" });
+    setForm({
+      name: "",
+      description: "",
+      category_id: categories[0]?.id || "",
+    });
     setVariants([]);
     setNewVariant({ size: "", price: "" });
     setFiles([]);
     setExistingImages([]);
   };
 
-  const addCategory = async () => {
-    const name = newCategory.trim();
-    if (!name) return alert("カテゴリー名を入力してください。");
+  const cancelEdit = () => { setEditingProduct(null); resetForm(); };
 
-    try {
-      const { data, error } = await supabaseAdmin
-        .from("categories")
-        .insert([{ name }])
-        .select()
-        .single();
-
-      if (error) throw error;
-      setCategories(prev => [...prev, data]);
-      setNewCategory("");
-      alert("カテゴリーを追加しました！");
-    } catch (err) {
-      console.error(err);
-      alert("カテゴリー追加エラー");
-    }
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const newFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+    setFiles(prev => [...prev, ...newFiles]);
   };
+
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
-      <h1 style={{ textAlign: "center", marginBottom: 30 }}>管理メニュー</h1>
+    <div className="p-8 bg-gray-50 min-h-screen">
+      <h1 className="text-5xl font-bold text-center mb-12">CRAFT BAKERY — 管理者画面</h1>
 
-      {/* === カテゴリー追加 === */}
-      <div style={{ marginBottom: 30 }}>
-        <h2>カテゴリー追加</h2>
-        <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-          <input
-            type="text"
-            placeholder="カテゴリー名"
-            value={newCategory}
-            onChange={(e) => setNewCategory(e.target.value)}
-            style={{ flex: 1, padding: 8 }}
-          />
-          <button onClick={addCategory}>追加</button>
+      {/* カテゴリー */}
+      <div className="max-w-5xl mx-auto mb-16 bg-white p-10 rounded-3xl shadow-2xl">
+        <h2 className="text-3xl font-bold mb-8">カテゴリー</h2>
+        <div className="flex gap-4 mb-8">
+          <input placeholder="新しいカテゴリー" value={newCategory} onChange={e => setNewCategory(e.target.value)} onKeyDown={e => e.key === "Enter" && addCategory()} className="flex-1 p-5 border-2 rounded-2xl text-lg" />
+          <button onClick={addCategory} className="bg-black text-white px-10 py-5 rounded-2xl font-bold">追加</button>
         </div>
-      </div>
-
-      {/* === 商品フォーム === */}
-      <div style={{ padding: 20, border: "1px solid #ccc", borderRadius: 8, marginBottom: 30 }}>
-        <h2>{editingProduct ? "商品を編集" : "商品を追加"}</h2>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 10 }}>
-
-          {/* 商品名 */}
-          <input
-            type="text"
-            placeholder="商品名"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            style={{ padding: 8 }}
-          />
-
-          {/* 説明文 */}
-          <textarea
-            placeholder="説明文（任意）"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            rows={3}
-            style={{ padding: 8 }}
-          />
-
-          {/* カテゴリー選択 */}
-          <select
-            value={form.category_id}
-            onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-            style={{ padding: 8 }}
-          >
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-
-          {/* === バリエーション追加 === */}
-          <div style={{ marginTop: 10 }}>
-            <h3>バリエーション（サイズ・価格）</h3>
-
-            <div style={{ display: "flex", gap: 10, marginTop: 5 }}>
-              <input
-                type="text"
-                placeholder="サイズ"
-                value={newVariant.size}
-                onChange={(e) => setNewVariant({ ...newVariant, size: e.target.value })}
-                style={{ flex: 1, padding: 8 }}
-              />
-              <input
-                type="number"
-                placeholder="価格"
-                value={newVariant.price}
-                onChange={(e) => setNewVariant({ ...newVariant, price: e.target.value })}
-                style={{ width: 100, padding: 8 }}
-              />
-              <button
-                onClick={() => {
-                  if (!newVariant.size || !newVariant.price) return alert("サイズと価格を入力してください。");
-                  setVariants((prev) => [...prev, newVariant]);
-                  setNewVariant({ size: "", price: "" });
-                }}
-              >
-                追加
-              </button>
-            </div>
-
-            {/* バリエーション一覧 */}
-            {variants.length > 0 && (
-              <ul style={{ marginTop: 10 }}>
-                {variants.map((v, idx) => (
-                  <li key={idx} style={{ marginBottom: 5 }}>
-                    {v.size} - ¥{v.price}
-                    <button
-                      onClick={() => setVariants((prev) => prev.filter((_, i) => i !== idx))}
-                      style={{ marginLeft: 10 }}
-                    >
-                      削除
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* === 画像アップロード === */}
-          <div style={{ marginTop: 15 }}>
-            <h3>商品画像</h3>
-            <input
-              type="file"
-              multiple
-              onChange={(e) => setFiles([...e.target.files])}
-            />
-
-            {/* 既存画像 */}
-            {existingImages.length > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <h4>既存の画像</h4>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {existingImages.map((img, i) => (
-                    <div key={i} style={{ position: "relative" }}>
-                      <img
-                        src={img.url}
-                        alt=""
-                        style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 6 }}
-                      />
-                      <button
-                        onClick={() => removeExistingImage(i)}
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          right: 0,
-                          background: "red",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "50%",
-                          width: 20,
-                          height: 20,
-                          cursor: "pointer",
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-          </div>
-
-          {/* === 追加 / 更新 ボタン === */}
-          <button
-            onClick={editingProduct ? updateProduct : addProduct}
-            disabled={loading}
-            style={{ marginTop: 15, padding: 10 }}
-          >
-            {loading
-              ? "処理中..."
-              : editingProduct
-              ? "更新する"
-              : "追加する"}
-          </button>
-
-          {editingProduct && (
-            <button onClick={resetForm} style={{ marginTop: 10 }}>
-              キャンセル
-            </button>
-          )}
-        </div>
-      </div>
-      {/* === 商品一覧 === */}
-      <div>
-        <h2>商品一覧</h2>
-
-        {products.length === 0 && <p>商品がありません。</p>}
-
-        <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 20 }}>
-          {products.map((p) => (
-            <div
-              key={p.id}
-              style={{
-                padding: 15,
-                border: "1px solid #ddd",
-                borderRadius: 8,
-                display: "flex",
-                gap: 15,
-                alignItems: "flex-start",
-              }}
-            >
-              {/* 画像 */}
-              <img
-                src={getFirstImageUrl(p.product_images)}
-                alt=""
-                style={{
-                  width: 100,
-                  height: 100,
-                  objectFit: "cover",
-                  borderRadius: 6,
-                }}
-              />
-
-              {/* 商品情報 */}
-              <div style={{ flex: 1 }}>
-                <h3 style={{ margin: 0 }}>{p.name}</h3>
-                <p style={{ margin: "5px 0" }}>{p.description || "説明なし"}</p>
-                <p style={{ margin: "5px 0" }}>
-                  カテゴリー:{" "}
-                  {categories.find((c) => c.id === p.category_id)?.name || "不明"}
-                </p>
-
-                {/* バリエーション */}
-                {p.variants?.length > 0 && (
-                  <ul style={{ margin: 0 }}>
-                    {p.variants.map((v, i) => (
-                      <li key={i}>
-                        {v.size} - ¥{v.price}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* ボタン */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <button onClick={() => editProduct(p)}>編集</button>
-
-                <button
-                  onClick={() => deleteProduct(p.id)}
-                  disabled={deletingId === p.id}
-                  style={{ background: "red", color: "white" }}
-                >
-                  {deletingId === p.id ? "削除中..." : "削除"}
-                </button>
-              </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-6">
+          {categories.map(cat => (
+            <div key={cat.id} className="bg-gray-100 p-6 rounded-2xl flex justify-between items-center shadow hover:shadow-lg">
+              <span className="font-semibold">{cat.name}</span>
+              <button onClick={() => deleteCategory(cat)} className="text-red-600 text-3xl">×</button>
             </div>
           ))}
         </div>
+      </div>
+
+      {/* フォーム */}
+      <div className="max-w-4xl mx-auto bg-white p-12 rounded-3xl shadow-2xl mb-20">
+        <h2 className="text-4xl font-bold mb-10 text-center">
+          {editingProduct ? "商品を編集" : "商品を追加"}
+        </h2>
+
+        <input placeholder="商品名" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full p-5 mb-6 border-2 rounded-2xl text-xl" />
+        <textarea placeholder="説明" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-5 mb-6 border-2 rounded-2xl" rows="3" />
+
+        <select value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })} className="w-full p-5 mb-8 border-2 rounded-2xl text-lg">
+          <option value="">カテゴリーを選択</option>
+          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+
+        {/* バリエーション */}
+        <div className="bg-green-50 p-8 rounded-3xl mb-8">
+          <h3 className="text-2xl font-bold mb-6">バリエーション</h3>
+          <div className="flex gap-4 mb-6">
+            <input placeholder="サイズ / 容量" value={newVariant.size} onChange={e => setNewVariant({ ...newVariant, size: e.target.value })} className="flex-1 p-5 border-2 rounded-2xl" />
+            <input type="number" placeholder="価格" value={newVariant.price} onChange={e => setNewVariant({ ...newVariant, price: e.target.value })} className="w-40 p-5 border-2 rounded-2xl" />
+            <button onClick={addVariant} className="bg-green-600 text-white px-8 py-5 rounded-2xl text-2xl">+</button>
+          </div>
+          {variants.map((v, i) => (
+            <div key={i} className="bg-white p-5 rounded-2xl mb-3 flex justify-between items-center">
+              <span className="text-xl">{v.size} — {v.price} ¥</span>
+              <button onClick={() => removeVariant(i)} className="text-red-600 text-3xl">×</button>
+            </div>
+          ))}
+        </div>
+
+        {/* 写真 */}
+        <div onDrop={handleDrop} onDragOver={e => e.preventDefault()} className="border-4 border-dashed rounded-3xl p-16 text-center mb-8">
+          <p className="text-2xl mb-6">写真をドラッグ＆ドロップ または <label className="text-blue-600 underline cursor-pointer">
+            <input type="file" multiple accept="image/*" onChange={e => setFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="hidden" /> 選択
+          </label></p>
+        </div>
+
+        <div className="grid grid-cols-4 gap-6 mb-10">
+          {files.map((f, i) => (
+            <div key={i} className="relative group">
+              <img src={URL.createObjectURL(f)} alt={f.name || ""} className="w-full h-48 object-contain bg-white rounded-2xl border shadow" />
+              <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-10 h-10 opacity-0 group-hover:opacity-100">×</button>
+            </div>
+          ))}
+          {editingProduct && existingImages.map((img, i) => (
+            <div key={i} className="relative group">
+              <img src={typeof img === "object" ? img.url : img} alt={typeof img === "object" ? img.name || "" : ""} className="w-full h-48 object-contain bg-white rounded-2xl border shadow" />
+              <button onClick={() => removeExistingImage(i)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-10 h-10 opacity-0 group-hover:opacity-100">×</button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-6">
+          <button onClick={editingProduct ? saveEdit : addProduct} disabled={loading} className="flex-1 bg-black text-white py-6 rounded-2xl text-2xl font-bold">
+            {loading ? "保存中..." : editingProduct ? "保存" : "追加"}
+          </button>
+          {editingProduct && <button onClick={cancelEdit} className="px-12 py-6 bg-gray-600 text-white rounded-2xl text-2xl font-bold">キャンセル</button>}
+        </div>
+      </div>
+
+      {/* 商品一覧 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10 max-w-7xl mx-auto">
+        {products.map(p => (
+          <div key={p.id} className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+            <div className="aspect-[4/3] bg-gray-50 flex items-center justify-center p-10">
+              <img src={getFirstImageUrl(p.product_images) || "/placeholder.png"} alt={p.name || "product image"} className="max-w-full max-h-full object-contain" />
+            </div>
+            <div className="p-8">
+              <h3 className="text-2xl font-bold mb-4">{p.name}</h3>
+              <div className="space-y-3 mb-6">
+                {p.variants?.map((v, i) => (
+                  <div key={i} className="flex justify-between text-lg">
+                    <span>{v.size}</span>
+                    <span className="font-bold text-green-600">{v.price} ¥</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-4">
+                <button onClick={() => startEdit(p)} className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold">編集</button>
+                <button onClick={() => deleteProduct(p)} className="flex-1 bg-red-600 text-white py-4 rounded-2xl font-bold">削除</button>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
