@@ -26,15 +26,13 @@ const normalizeImageEntry = (img) => {
       try {
         const parsed = JSON.parse(s);
         return normalizeImageEntry(parsed);
-      } catch {
-      }
+      } catch {}
     }
 
     try {
       const res = supabase.storage.from("product-images").getPublicUrl(s);
       if (res?.data?.publicUrl) return res.data.publicUrl;
-    } catch {
-    }
+    } catch {}
 
     return s || null;
   }
@@ -96,8 +94,10 @@ export default function Menu({ setIsAdminAuthenticated }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const rafTick = useRef(false);
+  const lastActiveRef = useRef(null); // Безопасно хранит последнее активное значение
   const headerOffset = 120;
 
+  // Загрузка данных
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -107,7 +107,11 @@ export default function Menu({ setIsAdminAuthenticated }) {
         if (!mounted) return;
         setCategories(cats || []);
         setProducts(prods || []);
-        if (cats?.length > 0 && !activeSection) setActiveSection(cats[0].id);
+        if (cats?.length > 0 && !activeSection) {
+          const firstId = cats[0].id;
+          setActiveSection(firstId);
+          lastActiveRef.current = firstId;
+        }
       } catch (err) {
         console.error("読み込みエラー", err);
       }
@@ -116,10 +120,9 @@ export default function Menu({ setIsAdminAuthenticated }) {
     return () => { mounted = false; };
   }, []);
 
+  // Scroll-логика — полностью безопасно, без лишних ререндеров
   useEffect(() => {
     if (!categories || categories.length === 0) return;
-
-    let lastActive = activeSection;
 
     const onScroll = () => {
       if (rafTick.current) return;
@@ -132,8 +135,8 @@ export default function Menu({ setIsAdminAuthenticated }) {
           const top = el.offsetTop;
           const bottom = top + el.offsetHeight;
           if (offset >= top && offset < bottom - 100) {
-            if (lastActive !== cat.id) {
-              lastActive = cat.id;
+            if (lastActiveRef.current !== cat.id) {
+              lastActiveRef.current = cat.id;
               setActiveSection(cat.id);
             }
             break;
@@ -146,32 +149,36 @@ export default function Menu({ setIsAdminAuthenticated }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
-  }, [categories]);
+  }, [categories]); // Только categories — всё правильно и безопасно
 
+  // Прокрутка к категории
   const scrollToCategory = useCallback((catId) => {
     const el = document.getElementById(`category-${catId}`);
     if (!el) return;
     const top = el.getBoundingClientRect().top + window.scrollY - headerOffset + 8;
     setActiveSection(catId);
+    lastActiveRef.current = catId;
     window.scrollTo({ top, behavior: "smooth" });
   }, []);
 
+  // Блокировка прокрутки при открытом модальном окне
   useEffect(() => {
     document.body.style.overflow = selectedProduct ? "hidden" : "";
     if (!selectedProduct) setCurrentImageIndex(0);
     return () => { document.body.style.overflow = ""; };
   }, [selectedProduct]);
 
+  // Навигация клавишами + предзагрузка
   useEffect(() => {
     if (!selectedProduct) return;
     const imgs = getAllImages(selectedProduct.product_images);
     const preload = (url) => { if (!url) return; const i = new Image(); i.src = url; };
     const next = (currentImageIndex + 1) % imgs.length;
     const prev = (currentImageIndex - 1 + imgs.length) % imgs.length;
-    preload(imgs[next]); preload(imgs[prev]);
+    preload(imgs[next]);
+    preload(imgs[prev]);
 
     const onKey = (e) => {
-      if (!selectedProduct) return;
       if (e.key === "Escape") setSelectedProduct(null);
       if (e.key === "ArrowLeft") setCurrentImageIndex(i => (i - 1 + imgs.length) % imgs.length);
       if (e.key === "ArrowRight") setCurrentImageIndex(i => (i + 1) % imgs.length);
@@ -182,11 +189,12 @@ export default function Menu({ setIsAdminAuthenticated }) {
 
   const handlePrevImage = () => {
     const imgs = getAllImages(selectedProduct?.product_images || []);
-    setCurrentImageIndex((prev) => (prev - 1 + imgs.length) % imgs.length);
+    setCurrentImageIndex(prev => (prev - 1 + imgs.length) % imgs.length);
   };
+
   const handleNextImage = () => {
     const imgs = getAllImages(selectedProduct?.product_images || []);
-    setCurrentImageIndex((prev) => (prev + 1) % imgs.length);
+    setCurrentImageIndex(prev => (prev + 1) % imgs.length);
   };
 
   return (
@@ -204,14 +212,19 @@ export default function Menu({ setIsAdminAuthenticated }) {
           if (!items || items.length === 0) return null;
 
           return (
-            <section key={cat.id} id={`category-${cat.id}`} className="max-w-7xl mx-auto px-5 mb-24" data-cat-id={cat.id}>
-              <h2 className="text-center text-4xl md:text-5xl font-bold text-stone-800 mb-12 tracking-tight">{cat.name}</h2>
+            <section key={cat.id} id={`category-${cat.id}`} className="max-w-7xl mx-auto px-5 mb-24">
+              <h2 className="text-center text-4xl md:text-5xl font-bold text-stone-800 mb-12 tracking-tight">
+                {cat.name}
+              </h2>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-7 md:gap-10">
                 {items.map(product => (
                   <button
                     key={product.id}
-                    onClick={() => { setSelectedProduct(product); setCurrentImageIndex(0); }}
+                    onClick={() => {
+                      setSelectedProduct(product);
+                      setCurrentImageIndex(0);
+                    }}
                     className="group relative bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-transform duration-300 hover:-translate-y-2 focus:outline-none"
                   >
                     <div className="relative aspect-[4/4] bg-gradient-to-br from-stone-50 to-amber-50 p-6 md:p-10 flex items-center justify-center">
@@ -238,7 +251,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
         })}
       </main>
 
-      {/* モーダル */}
+      {/* Модальное окно */}
       {selectedProduct && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8"
@@ -281,7 +294,6 @@ export default function Menu({ setIsAdminAuthenticated }) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
-
                   <button onClick={(e) => { e.stopPropagation(); handleNextImage(); }} className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white/90 text-stone-800 p-3 md:p-4 rounded-full z-20">
                     <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -292,7 +304,11 @@ export default function Menu({ setIsAdminAuthenticated }) {
 
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">
                 {getAllImages(selectedProduct.product_images).map((_, i) => (
-                  <button key={i} onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i); }} className={`w-2 h-2 md:w-3 md:h-3 rounded-full transition ${currentImageIndex === i ? "bg-amber-800" : "bg-stone-300 hover:bg-stone-400"}`} />
+                  <button
+                    key={i}
+                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i); }}
+                    className={`w-2 h-2 md:w-3 md:h-3 rounded-full transition ${currentImageIndex === i ? "bg-amber-800" : "bg-stone-300 hover:bg-stone-400"}`}
+                  />
                 ))}
               </div>
             </div>
@@ -300,7 +316,11 @@ export default function Menu({ setIsAdminAuthenticated }) {
             <div className="flex-1 md:w-2/5 p-6 md:p-8 flex flex-col justify-between">
               <div>
                 <h2 className="text-2xl md:text-4xl font-bold text-stone-900 mb-4 md:mb-6">{selectedProduct.name}</h2>
-                {selectedProduct.description && <p className="text-stone-600 text-sm md:text-lg leading-relaxed mb-6 md:mb-8">{selectedProduct.description}</p>}
+                {selectedProduct.description && (
+                  <p className="text-stone-600 text-sm md:text-lg leading-relaxed mb-6 md:mb-8">
+                    {selectedProduct.description}
+                  </p>
+                )}
               </div>
 
               <div className="mt-4 md:mt-auto">
