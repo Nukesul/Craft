@@ -3,14 +3,14 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import Header from "./Header";
 
-/* Placeholder (use public/placeholder.png or keep this external one) */
-const FALLBACK = "/placeholder.png"; // or "https://via.placeholder.com/800"
+/* Placeholder (положи public/placeholder.png или оставь этот внешний) */
+const FALLBACK = "/placeholder.png"; // или "https://via.placeholder.com/800"
 
-/* Universal normalization of a single image entry */
+/* Универсальная нормализация одного img entry */
 const normalizeImageEntry = (img) => {
   if (!img) return null;
 
-  // object { url, path }
+  // объект { url, path }
   if (typeof img === "object") {
     if (img.url) return img.url;
     if (img.path) {
@@ -20,24 +20,24 @@ const normalizeImageEntry = (img) => {
     return null;
   }
 
-  // string
+  // строка
   if (typeof img === "string") {
     const s = img.trim();
 
-    // full URL
+    // если это полная ссылка
     if (s.startsWith("http://") || s.startsWith("https://")) return s;
 
-    // JSON string
+    // если JSON-строка
     if (s.startsWith("{") || s.startsWith("[")) {
       try {
         const parsed = JSON.parse(s);
         return normalizeImageEntry(parsed);
       } catch {
-        // fall through to next block
+        // упадёт в следующий блок — попробуем как файл
       }
     }
 
-    // likely a storage path/filename (e.g. "1764167_....png" or "folder/file.png")
+    // похоже на путь/имя файла в storage
     try {
       const res = supabase.storage.from("product-images").getPublicUrl(s);
       if (res?.data?.publicUrl) return res.data.publicUrl;
@@ -45,14 +45,13 @@ const normalizeImageEntry = (img) => {
       // fallthrough
     }
 
-    // fallback: return the string itself (if it's already a relative URL)
     return s || null;
   }
 
   return null;
 };
 
-/* Returns an array of valid URLs */
+/* Возвращает массив валидных url'ов */
 const getAllImages = (images) => {
   if (!images) return [FALLBACK];
 
@@ -107,9 +106,9 @@ export default function Menu({ setIsAdminAuthenticated }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const rafTick = useRef(false);
-  const headerOffset = 120; // adjust if header height changes
+  const headerOffset = 120;
 
-  // Load categories and products
+  // Загрузка категорий и продуктов
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -126,9 +125,9 @@ export default function Menu({ setIsAdminAuthenticated }) {
     };
     load();
     return () => { mounted = false; };
-  }, [activeSection]); // fixed: added missing dependency
+  }, [activeSection]); // исправлено
 
-  // Optimized scroll handler (rAF)
+  // Оптимизированный scroll handler (rAF)
   useEffect(() => {
     if (!categories || categories.length === 0) return;
 
@@ -159,9 +158,8 @@ export default function Menu({ setIsAdminAuthenticated }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
-  }, [categories, activeSection]); // fixed: added missing dependency
+  }, [categories, activeSection]); // исправлено
 
-  // Smooth scroll to category with header offset
   const scrollToCategory = useCallback((catId) => {
     const el = document.getElementById(`category-${catId}`);
     if (!el) return;
@@ -170,14 +168,14 @@ export default function Menu({ setIsAdminAuthenticated }) {
     window.scrollTo({ top, behavior: "smooth" });
   }, []);
 
-  // Modal: lock scroll when open
+  // Модал: блокировка прокрутки при открытии
   useEffect(() => {
     document.body.style.overflow = selectedProduct ? "hidden" : "";
     if (!selectedProduct) setCurrentImageIndex(0);
     return () => { document.body.style.overflow = ""; };
   }, [selectedProduct]);
 
-  // Keyboard navigation in modal + preload neighbors
+  // Клавиши навигации в модалке и предзагрузка соседних
   useEffect(() => {
     if (!selectedProduct) return;
     const imgs = getAllImages(selectedProduct.product_images);
@@ -243,7 +241,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
                     <div className="px-6 pb-7 pt-4 text-center">
                       <h3 className="font-bold text-xl text-stone-900 leading-tight">{product.name}</h3>
                       <p className="mt-2 font-semibold text-lg text-amber-800">
-                        {product.variants?.[0]?.price ? `${product.variants[0].price} ₽` : "Price on request"}
+                        {product.variants?.[0]?.price ? `${product.variants[0].price} ₽` : "По запросу"}
                       </p>
                     </div>
                   </button>
@@ -271,7 +269,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
             <button
               onClick={() => setSelectedProduct(null)}
               className="absolute top-4 right-4 z-30 text-stone-600 hover:text-stone-800 bg-white/80 rounded-full p-2 md:p-3"
-              aria-label="Close"
+              aria-label="Закрыть"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -320,14 +318,14 @@ export default function Menu({ setIsAdminAuthenticated }) {
               </div>
 
               <div className="mt-4 md:mt-auto">
-                <h3 className="text-xl md:text-2xl font-semibold text-stone-800 mb-3 md:mb-4">Variants</h3>
+                <h3 className="text-xl md:text-2xl font-semibold text-stone-800 mb-3 md:mb-4">Варианты</h3>
                 <div className="space-y-3 md:space-y-4">
                   {selectedProduct.variants?.map((v, i) => (
                     <div key={i} className="flex justify-between items-center border-b border-stone-200 pb-2 md:pb-3">
                       <span className="text-stone-600 font-medium text-sm md:text-base">{v.size}</span>
                       <span className="font-bold text-xl md:text-2xl text-amber-800">{v.price} ₽</span>
                     </div>
-                  )) || <p className="text-stone-500">No variants available</p>}
+                  )) || <p className="text-stone-500">Варианты отсутствуют</p>}
                 </div>
               </div>
             </div>
