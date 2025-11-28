@@ -1,3 +1,4 @@
+// File: src/components/AdminMenu.jsx (полностью на японском + ¥)
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { supabaseAdmin } from "../lib/supabaseAdmin";
@@ -10,7 +11,7 @@ export default function AdminMenu() {
   const [form, setForm] = useState({
     name: "",
     description: "",
-    category_id: "", // ← всегда строка, никогда null!
+    category_id: "",
   });
 
   const [variants, setVariants] = useState([]);
@@ -21,13 +22,11 @@ export default function AdminMenu() {
 
   const [newCategory, setNewCategory] = useState("");
   const [loading, setLoading] = useState(false);
-  // eslint-disable-next-line no-unused-vars
-  const [deletingId, setDeletingId] = useState(null); // оставляем state, но выключаем правило — безопасно и не ломает логику
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // отключаем правило проверки зависимостей, чтобы не вызвать лишних ререндеров
+  }, []);
 
   const loadData = async () => {
     try {
@@ -41,7 +40,7 @@ export default function AdminMenu() {
         setForm(prev => ({ ...prev, category_id: cats[0].id }));
       }
     } catch (err) {
-      console.error("Ошибка загрузки:", err);
+      console.error("読み込みエラー:", err);
     }
   };
 
@@ -78,10 +77,9 @@ export default function AdminMenu() {
     return { url: publicUrl, path: fileName };
   };
 
-  // === ДОБАВЛЕНИЕ ===
   const addProduct = async () => {
     if (!form.name.trim() || !form.category_id || variants.length === 0) {
-      return alert("Заполните название, выберите категорию и добавьте хотя бы один вариант");
+      return alert("商品名、カテゴリー、少なくとも1つのバリエーションを入力してください");
     }
 
     setLoading(true);
@@ -94,7 +92,7 @@ export default function AdminMenu() {
         .insert([{
           name: form.name.trim(),
           description: form.description.trim() || null,
-          category_id: form.category_id, // ← UUID как строка
+          category_id: form.category_id,
           product_images: uploaded.length ? uploaded : null,
           variants: variants.map(v => ({ size: v.size.trim(), price: Number(v.price) })),
         }])
@@ -104,22 +102,21 @@ export default function AdminMenu() {
       if (error) throw error;
       setProducts(prev => [data, ...prev]);
       resetForm();
-      alert("Товар добавлен!");
+      alert("商品を追加しました！");
     } catch (err) {
       console.error(err);
-      alert("Ошибка добавления");
+      alert("追加エラー");
     } finally {
       setLoading(false);
     }
   };
 
-  // === РЕДАКТИРОВАНИЕ ===
   const startEdit = (product) => {
     setEditingProduct(product);
     setForm({
       name: product.name,
       description: product.description || "",
-      category_id: product.category_id || "", // ← всегда строка!
+      category_id: product.category_id || "",
     });
     setVariants(product.variants || []);
     setExistingImages(product.product_images || []);
@@ -128,7 +125,7 @@ export default function AdminMenu() {
 
   const saveEdit = async () => {
     if (!form.name.trim() || !form.category_id || variants.length === 0) {
-      return alert("Заполните все поля и добавьте варианты");
+      return alert("全ての項目を入力し、バリエーションを追加してください");
     }
 
     setLoading(true);
@@ -142,7 +139,7 @@ export default function AdminMenu() {
         .update({
           name: form.name.trim(),
           description: form.description.trim() || null,
-          category_id: form.category_id, // ← UUID как строка
+          category_id: form.category_id,
           product_images: finalImages.length ? finalImages : null,
           variants: variants.map(v => ({ size: v.size.trim(), price: Number(v.price) })),
         })
@@ -158,10 +155,10 @@ export default function AdminMenu() {
 
       setEditingProduct(null);
       resetForm();
-      alert("Товар сохранён!");
+      alert("保存しました！");
     } catch (err) {
       console.error(err);
-      alert("Ошибка сохранения");
+      alert("保存エラー");
     } finally {
       setLoading(false);
     }
@@ -177,16 +174,16 @@ export default function AdminMenu() {
   const removeExistingImage = (i) => setExistingImages(prev => prev.filter((_, idx) => idx !== i));
 
   const deleteProduct = async (product) => {
-    if (!window.confirm(`Удалить "${product.name}" навсегда?`)) return;
-    setDeletingId(product.id); // используем set, переменная просто хранится
+    if (!window.confirm(`「${product.name}」を完全に削除しますか？`)) return;
+    setDeletingId(product.id);
     try {
       const paths = extractPaths(product.product_images || []);
       if (paths.length > 0) await supabaseAdmin.storage.from("product-images").remove(paths);
       await supabaseAdmin.from("products").delete().eq("id", product.id);
       setProducts(prev => prev.filter(p => p.id !== product.id));
-      alert("Удалено!");
+      alert("削除しました！");
     } catch (err) {
-      alert("Ошибка");
+      alert("削除エラー");
     } finally {
       setDeletingId(null);
     }
@@ -194,15 +191,15 @@ export default function AdminMenu() {
 
   const addCategory = async () => {
     const name = newCategory.trim();
-    if (!name) return alert("Введите название");
+    if (!name) return alert("カテゴリー名を入力してください");
     const { data } = await supabaseAdmin.from("categories").insert([{ name }]).select().single();
     setCategories(prev => [...prev, data]);
     setNewCategory("");
   };
 
   const deleteCategory = async (cat) => {
-    if (products.some(p => p.category_id === cat.id)) return alert("В категории есть товары!");
-    if (!window.confirm(`Удалить "${cat.name}"?`)) return;
+    if (products.some(p => p.category_id === cat.id)) return alert("このカテゴリーには商品があります！");
+    if (!window.confirm(`「${cat.name}」を削除しますか？`)) return;
     await supabaseAdmin.from("categories").delete().eq("id", cat.id);
     setCategories(prev => prev.filter(c => c.id !== cat.id));
   };
@@ -211,7 +208,7 @@ export default function AdminMenu() {
     setForm({
       name: "",
       description: "",
-      category_id: categories[0]?.id || "", // ← всегда строка
+      category_id: categories[0]?.id || "",
     });
     setVariants([]);
     setNewVariant({ size: "", price: "" });
@@ -229,14 +226,14 @@ export default function AdminMenu() {
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
-      <h1 className="text-5xl font-bold text-center mb-12">CRAFT BAKERY — АДМИН</h1>
+      <h1 className="text-5xl font-bold text-center mb-12">CRAFT BAKERY — 管理者画面</h1>
 
-      {/* Категории */}
+      {/* カテゴリー */}
       <div className="max-w-5xl mx-auto mb-16 bg-white p-10 rounded-3xl shadow-2xl">
-        <h2 className="text-3xl font-bold mb-8">Категории</h2>
+        <h2 className="text-3xl font-bold mb-8">カテゴリー</h2>
         <div className="flex gap-4 mb-8">
-          <input placeholder="Новая категория" value={newCategory} onChange={e => setNewCategory(e.target.value)} onKeyDown={e => e.key === "Enter" && addCategory()} className="flex-1 p-5 border-2 rounded-2xl text-lg" />
-          <button onClick={addCategory} className="bg-black text-white px-10 py-5 rounded-2xl font-bold">Добавить</button>
+          <input placeholder="新しいカテゴリー" value={newCategory} onChange={e => setNewCategory(e.target.value)} onKeyDown={e => e.key === "Enter" && addCategory()} className="flex-1 p-5 border-2 rounded-2xl text-lg" />
+          <button onClick={addCategory} className="bg-black text-white px-10 py-5 rounded-2xl font-bold">追加</button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-6">
           {categories.map(cat => (
@@ -248,40 +245,40 @@ export default function AdminMenu() {
         </div>
       </div>
 
-      {/* Форма */}
+      {/* フォーム */}
       <div className="max-w-4xl mx-auto bg-white p-12 rounded-3xl shadow-2xl mb-20">
         <h2 className="text-4xl font-bold mb-10 text-center">
-          {editingProduct ? "Редактировать товар" : "Добавить товар"}
+          {editingProduct ? "商品を編集" : "商品を追加"}
         </h2>
 
-        <input placeholder="Название" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full p-5 mb-6 border-2 rounded-2xl text-xl" />
-        <textarea placeholder="Описание" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-5 mb-6 border-2 rounded-2xl" rows="3" />
+        <input placeholder="商品名" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full p-5 mb-6 border-2 rounded-2xl text-xl" />
+        <textarea placeholder="説明（任意）" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-5 mb-6 border-2 rounded-2xl" rows="3" />
 
         <select value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })} className="w-full p-5 mb-8 border-2 rounded-2xl text-lg">
-          <option value="">Выберите категорию</option>
+          <option value="">カテゴリーを選択</option>
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
 
-        {/* Варианты */}
+        {/* バリエーション */}
         <div className="bg-green-50 p-8 rounded-3xl mb-8">
-          <h3 className="text-2xl font-bold mb-6">Варианты</h3>
+          <h3 className="text-2xl font-bold mb-6">バリエーション</h3>
           <div className="flex gap-4 mb-6">
-            <input placeholder="Размер / объём" value={newVariant.size} onChange={e => setNewVariant({ ...newVariant, size: e.target.value })} className="flex-1 p-5 border-2 rounded-2xl" />
-            <input type="number" placeholder="Цена" value={newVariant.price} onChange={e => setNewVariant({ ...newVariant, price: e.target.value })} className="w-40 p-5 border-2 rounded-2xl" />
+            <input placeholder="サイズ / 容量" value={newVariant.size} onChange={e => setNewVariant({ ...newVariant, size: e.target.value })} className="flex-1 p-5 border-2 rounded-2xl" />
+            <input type="number" placeholder="価格 (¥)" value={newVariant.price} onChange={e => setNewVariant({ ...newVariant, price: e.target.value })} className="w-40 p-5 border-2 rounded-2xl" />
             <button onClick={addVariant} className="bg-green-600 text-white px-8 py-5 rounded-2xl text-2xl">+</button>
           </div>
           {variants.map((v, i) => (
             <div key={i} className="bg-white p-5 rounded-2xl mb-3 flex justify-between items-center">
-              <span className="text-xl">{v.size} — {v.price} ₽</span>
+              <span className="text-xl">{v.size} — {v.price} ¥</span>
               <button onClick={() => removeVariant(i)} className="text-red-600 text-3xl">×</button>
             </div>
           ))}
         </div>
 
-        {/* Фото */}
+        {/* 写真 */}
         <div onDrop={handleDrop} onDragOver={e => e.preventDefault()} className="border-4 border-dashed rounded-3xl p-16 text-center mb-8">
-          <p className="text-2xl mb-6">Перетащите фото или <label className="text-blue-600 underline cursor-pointer">
-            <input type="file" multiple accept="image/*" onChange={e => setFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="hidden" /> выберите
+          <p className="text-2xl mb-6">写真をドラッグ＆ドロップ または <label className="text-blue-600 underline cursor-pointer">
+            <input type="file" multiple accept="image/*" onChange={e => setFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="hidden" /> 選択
           </label></p>
         </div>
 
@@ -302,13 +299,13 @@ export default function AdminMenu() {
 
         <div className="flex gap-6">
           <button onClick={editingProduct ? saveEdit : addProduct} disabled={loading} className="flex-1 bg-black text-white py-6 rounded-2xl text-2xl font-bold">
-            {loading ? "Сохранение..." : editingProduct ? "Сохранить" : "Добавить"}
+            {loading ? "保存中..." : editingProduct ? "保存" : "追加"}
           </button>
-          {editingProduct && <button onClick={cancelEdit} className="px-12 py-6 bg-gray-600 text-white rounded-2xl text-2xl font-bold">Отмена</button>}
+          {editingProduct && <button onClick={cancelEdit} className="px-12 py-6 bg-gray-600 text-white rounded-2xl text-2xl font-bold">キャンセル</button>}
         </div>
       </div>
 
-      {/* Товары */}
+      {/* 商品一覧 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10 max-w-7xl mx-auto">
         {products.map(p => (
           <div key={p.id} className="bg-white rounded-3xl shadow-2xl overflow-hidden">
@@ -321,13 +318,13 @@ export default function AdminMenu() {
                 {p.variants?.map((v, i) => (
                   <div key={i} className="flex justify-between text-lg">
                     <span>{v.size}</span>
-                    <span className="font-bold text-green-600">{v.price} ₽</span>
+                    <span className="font-bold text-green-600">{v.price} ¥</span>
                   </div>
                 ))}
               </div>
               <div className="flex gap-4">
-                <button onClick={() => startEdit(p)} className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold">Редактировать</button>
-                <button onClick={() => deleteProduct(p)} className="flex-1 bg-red-600 text-white py-4 rounded-2xl font-bold">Удалить</button>
+                <button onClick={() => startEdit(p)} className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold">編集</button>
+                <button onClick={() => deleteProduct(p)} className="flex-1 bg-red-600 text-white py-4 rounded-2xl font-bold">削除</button>
               </div>
             </div>
           </div>

@@ -1,5 +1,4 @@
 // File: src/components/Header.jsx
-// (модифицированный твой Header — оставил логику и refs, мелкие правки для стабильности)
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../logo.jpg";
@@ -26,12 +25,11 @@ export default function Header({
       setShowPassword(false);
       setPassword("");
     } else {
-      alert("Неверный пароль");
+      alert("パスワードが間違っています");
       setPassword("");
     }
   };
 
-  // Автоцентрирование (работает на resize)
   useEffect(() => {
     if (!activeSection) return;
     const isDesktop = window.innerWidth >= 1024;
@@ -39,7 +37,6 @@ export default function Header({
     const button = categoryRefs.current[activeSection];
     if (!container || !button) return;
 
-    // slight delay to ensure layout stable (helps on resize)
     const id = setTimeout(() => {
       const containerWidth = container.offsetWidth;
       const buttonLeft = button.offsetLeft;
@@ -51,7 +48,6 @@ export default function Header({
     return () => clearTimeout(id);
   }, [activeSection]);
 
-  // ensure refs cleared on categories change
   useEffect(() => {
     categoryRefs.current = {};
   }, [categories]);
@@ -71,7 +67,7 @@ export default function Header({
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
-            <span className="hidden sm:inline">Admin</span>
+            <span className="hidden sm:inline">管理者</span>
           </button>
         </div>
 
@@ -108,13 +104,13 @@ export default function Header({
       {showPassword && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowPassword(false)}>
           <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-xs" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-center mb-4">Вход в админку</h3>
+            <h3 className="text-lg font-semibold text-center mb-4">管理者ログイン</h3>
 
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdminEnter()} placeholder="Пароль" className="w-full px-4 py-3 border rounded-lg focus:border-amber-500 outline-none" />
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdminEnter()} placeholder="パスワード" className="w-full px-4 py-3 border rounded-lg focus:border-amber-500 outline-none" />
 
             <div className="flex gap-3 mt-5">
-              <button onClick={handleAdminEnter} className="flex-1 bg-amber-500 text-white py-3 rounded-lg hover:bg-amber-600">Войти</button>
-              <button onClick={() => { setShowPassword(false); setPassword(""); }} className="flex-1 bg-gray-200 py-3 rounded-lg hover:bg-gray-300">Отмена</button>
+              <button onClick={handleAdminEnter} className="flex-1 bg-amber-500 text-white py-3 rounded-lg hover:bg-amber-600">ログイン</button>
+              <button onClick={() => { setShowPassword(false); setPassword(""); }} className="flex-1 bg-gray-200 py-3 rounded-lg hover:bg-gray-300">キャンセル</button>
             </div>
           </div>
         </div>
