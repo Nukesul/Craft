@@ -3,11 +3,14 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import Header from "./Header";
 
-const FALLBACK = "/placeholder.png";
+/* Placeholder (use public/placeholder.png or keep this external one) */
+const FALLBACK = "/placeholder.png"; // or "https://via.placeholder.com/800"
 
+/* Universal normalization of a single image entry */
 const normalizeImageEntry = (img) => {
   if (!img) return null;
 
+  // object { url, path }
   if (typeof img === "object") {
     if (img.url) return img.url;
     if (img.path) {
@@ -17,29 +20,39 @@ const normalizeImageEntry = (img) => {
     return null;
   }
 
+  // string
   if (typeof img === "string") {
     const s = img.trim();
 
+    // full URL
     if (s.startsWith("http://") || s.startsWith("https://")) return s;
 
+    // JSON string
     if (s.startsWith("{") || s.startsWith("[")) {
       try {
         const parsed = JSON.parse(s);
         return normalizeImageEntry(parsed);
-      } catch {}
+      } catch {
+        // fall through to next block
+      }
     }
 
+    // likely a storage path/filename (e.g. "1764167_....png" or "folder/file.png")
     try {
       const res = supabase.storage.from("product-images").getPublicUrl(s);
       if (res?.data?.publicUrl) return res.data.publicUrl;
-    } catch {}
+    } catch {
+      // fallthrough
+    }
 
+    // fallback: return the string itself (if it's already a relative URL)
     return s || null;
   }
 
   return null;
 };
 
+/* Returns an array of valid URLs */
 const getAllImages = (images) => {
   if (!images) return [FALLBACK];
 
@@ -94,8 +107,9 @@ export default function Menu({ setIsAdminAuthenticated }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const rafTick = useRef(false);
-  const headerOffset = 120;
+  const headerOffset = 120; // adjust if header height changes
 
+  // Load categories and products
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -107,13 +121,14 @@ export default function Menu({ setIsAdminAuthenticated }) {
         setProducts(prods || []);
         if (cats?.length > 0 && !activeSection) setActiveSection(cats[0].id);
       } catch (err) {
-        console.error("読み込みエラー", err);
+        console.error("load error", err);
       }
     };
     load();
     return () => { mounted = false; };
   }, []);
 
+  // Optimized scroll handler (rAF)
   useEffect(() => {
     if (!categories || categories.length === 0) return;
 
@@ -146,6 +161,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, [categories]);
 
+  // Smooth scroll to category with header offset
   const scrollToCategory = useCallback((catId) => {
     const el = document.getElementById(`category-${catId}`);
     if (!el) return;
@@ -154,12 +170,14 @@ export default function Menu({ setIsAdminAuthenticated }) {
     window.scrollTo({ top, behavior: "smooth" });
   }, []);
 
+  // Modal: lock scroll when open
   useEffect(() => {
     document.body.style.overflow = selectedProduct ? "hidden" : "";
     if (!selectedProduct) setCurrentImageIndex(0);
     return () => { document.body.style.overflow = ""; };
   }, [selectedProduct]);
 
+  // Keyboard navigation in modal + preload neighbors
   useEffect(() => {
     if (!selectedProduct) return;
     const imgs = getAllImages(selectedProduct.product_images);
@@ -225,7 +243,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
                     <div className="px-6 pb-7 pt-4 text-center">
                       <h3 className="font-bold text-xl text-stone-900 leading-tight">{product.name}</h3>
                       <p className="mt-2 font-semibold text-lg text-amber-800">
-                        {product.variants?.[0]?.price ? `${product.variants[0].price} ¥` : "お問い合わせください"}
+                        {product.variants?.[0]?.price ? `${product.variants[0].price} ₽` : "Price on request"}
                       </p>
                     </div>
                   </button>
@@ -236,7 +254,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
         })}
       </main>
 
-      {/* モーダル */}
+      {/* Modal */}
       {selectedProduct && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8"
@@ -253,7 +271,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
             <button
               onClick={() => setSelectedProduct(null)}
               className="absolute top-4 right-4 z-30 text-stone-600 hover:text-stone-800 bg-white/80 rounded-full p-2 md:p-3"
-              aria-label="閉じる"
+              aria-label="Close"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -302,14 +320,14 @@ export default function Menu({ setIsAdminAuthenticated }) {
               </div>
 
               <div className="mt-4 md:mt-auto">
-                <h3 className="text-xl md:text-2xl font-semibold text-stone-800 mb-3 md:mb-4">バリエーション</h3>
+                <h3 className="text-xl md:text-2xl font-semibold text-stone-800 mb-3 md:mb-4">Variants</h3>
                 <div className="space-y-3 md:space-y-4">
                   {selectedProduct.variants?.map((v, i) => (
                     <div key={i} className="flex justify-between items-center border-b border-stone-200 pb-2 md:pb-3">
                       <span className="text-stone-600 font-medium text-sm md:text-base">{v.size}</span>
-                      <span className="font-bold text-xl md:text-2xl text-amber-800">{v.price} ¥</span>
+                      <span className="font-bold text-xl md:text-2xl text-amber-800">{v.price} ₽</span>
                     </div>
-                  )) || <p className="text-stone-500">バリエーションはありません</p>}
+                  )) || <p className="text-stone-500">No variants available</p>}
                 </div>
               </div>
             </div>
