@@ -126,7 +126,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
     };
     load();
     return () => { mounted = false; };
-  }, []);
+  }, [activeSection]); // fixed: added missing dependency
 
   // Optimized scroll handler (rAF)
   useEffect(() => {
@@ -159,7 +159,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
-  }, [categories]);
+  }, [categories, activeSection]); // fixed: added missing dependency
 
   // Smooth scroll to category with header offset
   const scrollToCategory = useCallback((catId) => {
