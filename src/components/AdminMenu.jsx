@@ -7,20 +7,32 @@ export default function AdminMenu() {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [form, setForm] = useState({ name: "", description: "", category_id: "" });
+
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    category_id: "",
+  });
+
   const [variants, setVariants] = useState([]);
   const [newVariant, setNewVariant] = useState({ size: "", price: "" });
+
   const [files, setFiles] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
+
   const [newCategory, setNewCategory] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Загрузка данных — useCallback + правильные зависимости
   const loadData = useCallback(async () => {
     try {
       const { data: cats } = await supabase.from("categories").select("*").order("name");
       const { data: prods } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+
       setCategories(cats || []);
       setProducts(prods || []);
+
+      // Автовыбор первой категории в форме
       if (cats?.length > 0 && !form.category_id) {
         setForm(prev => ({ ...prev, category_id: cats[0].id }));
       }
@@ -33,6 +45,7 @@ export default function AdminMenu() {
     loadData();
   }, [loadData]);
 
+  // Получение первой картинки
   const getFirstImageUrl = (images) => {
     if (!images || images.length === 0) return null;
     const first = images[0];
@@ -43,6 +56,7 @@ export default function AdminMenu() {
     return null;
   };
 
+  // Извлечение путей для удаления
   const extractPaths = (images) => {
     if (!images) return [];
     return images
@@ -57,6 +71,7 @@ export default function AdminMenu() {
       .filter(Boolean);
   };
 
+  // Загрузка изображения
   const uploadImage = async (file) => {
     const fileExt = file.name.split(".").pop();
     const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
@@ -66,21 +81,29 @@ export default function AdminMenu() {
     return { url: publicUrl, path: fileName };
   };
 
+  // === Добавление товара ===
   const addProduct = async () => {
     if (!form.name.trim() || !form.category_id || variants.length === 0) {
       return alert("商品名、カテゴリー、少なくとも1つのバリエーションを入力してください");
     }
+
     setLoading(true);
     try {
       const uploaded = [];
       for (const file of files) uploaded.push(await uploadImage(file));
-      const { data, error } = await supabaseAdmin.from("products").insert([{
-        name: form.name.trim(),
-        description: form.description.trim() || null,
-        category_id: form.category_id,
-        product_images: uploaded.length ? uploaded : null,
-        variants: variants.map(v => ({ size: v.size.trim(), price: Number(v.price) })),
-      }]).select().single();
+
+      const { data, error } = await supabaseAdmin
+        .from("products")
+        .insert([{
+          name: form.name.trim(),
+          description: form.description.trim() || null,
+          category_id: form.category_id,
+          product_images: uploaded.length ? uploaded : null,
+          variants: variants.map(v => ({ size: v.size.trim(), price: Number(v.price) })),
+        }])
+        .select()
+        .single();
+
       if (error) throw error;
       setProducts(prev => [data, ...prev]);
       resetForm();
@@ -92,6 +115,7 @@ export default function AdminMenu() {
     }
   };
 
+  // === Редактирование ===
   const startEdit = (product) => {
     setEditingProduct(product);
     setForm({
@@ -108,20 +132,30 @@ export default function AdminMenu() {
     if (!form.name.trim() || !form.category_id || variants.length === 0) {
       return alert("全ての項目を入力してください");
     }
+
     setLoading(true);
     try {
       const newImages = [];
       for (const file of files) newImages.push(await uploadImage(file));
       const finalImages = [...existingImages, ...newImages];
-      const { error } = await supabaseAdmin.from("products").update({
-        name: form.name.trim(),
-        description: form.description.trim() || null,
-        category_id: form.category_id,
-        product_images: finalImages.length ? finalImages : null,
-        variants: variants.map(v => ({ size: v.size.trim(), price: Number(v.price) })),
-      }).eq("id", editingProduct.id);
+
+      const { error } = await supabaseAdmin
+        .from("products")
+        .update({
+          name: form.name.trim(),
+          description: form.description.trim() || null,
+          category_id: form.category_id,
+          product_images: finalImages.length ? finalImages : null,
+          variants: variants.map(v => ({ size: v.size.trim(), price: Number(v.price) })),
+        })
+        .eq("id", editingProduct.id);
+
       if (error) throw error;
-      setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...form, product_images: finalImages, variants } : p));
+
+      setProducts(prev => prev.map(p =>
+        p.id === editingProduct.id ? { ...p, ...form, product_images: finalImages, variants } : p
+      ));
+
       setEditingProduct(null);
       resetForm();
       alert("保存しました！");
@@ -177,7 +211,10 @@ export default function AdminMenu() {
     setExistingImages([]);
   };
 
-  const cancelEdit = () => { setEditingProduct(null); resetForm(); };
+  const cancelEdit = () => {
+    setEditingProduct(null);
+    resetForm();
+  };
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -189,10 +226,17 @@ export default function AdminMenu() {
     <div className="p-8 bg-gray-50 min-h-screen">
       <h1 className="text-5xl font-bold text-center mb-12">CRAFT BAKERY — 管理者画面</h1>
 
+      {/* カテゴリー */}
       <div className="max-w-5xl mx-auto mb-16 bg-white p-10 rounded-3xl shadow-2xl">
         <h2 className="text-3xl font-bold mb-8">カテゴリー</h2>
         <div className="flex gap-4 mb-8">
-          <input placeholder="新しいカテゴリー" value={newCategory} onChange={e => setNewCategory(e.target.value)} onKeyDown={e => e.key === "Enter" && addCategory()} className="flex-1 p-5 border-2 rounded-2xl text-lg" />
+          <input
+            placeholder="新しいカテゴリー"
+            value={newCategory}
+            onChange={e => setNewCategory(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && addCategory()}
+            className="flex-1 p-5 border-2 rounded-2xl text-lg"
+          />
           <button onClick={addCategory} className="bg-black text-white px-10 py-5 rounded-2xl font-bold">追加</button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-6">
@@ -205,8 +249,11 @@ export default function AdminMenu() {
         </div>
       </div>
 
+      {/* Форма добавления/редактирования */}
       <div className="max-w-4xl mx-auto bg-white p-12 rounded-3xl shadow-2xl mb-20">
-        <h2 className="text-4xl font-bold mb-10 text-center">{editingProduct ? "商品を編集" : "商品を追加"}</h2>
+        <h2 className="text-4xl font-bold mb-10 text-center">
+          {editingProduct ? "商品を編集" : "商品を追加"}
+        </h2>
 
         <input placeholder="商品名" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full p-5 mb-6 border-2 rounded-2xl text-xl" />
         <textarea placeholder="説明（任意）" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full p-5 mb-6 border-2 rounded-2xl" rows="3" />
@@ -216,6 +263,7 @@ export default function AdminMenu() {
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
 
+        {/* Варианты */}
         <div className="bg-green-50 p-8 rounded-3xl mb-8">
           <h3 className="text-2xl font-bold mb-6">バリエーション</h3>
           <div className="flex gap-4 mb-6">
@@ -231,16 +279,20 @@ export default function AdminMenu() {
           ))}
         </div>
 
+        {/* Фото */}
         <div onDrop={handleDrop} onDragOver={e => e.preventDefault()} className="border-4 border-dashed rounded-3xl p-16 text-center mb-8">
-          <p className="text-2xl mb-6">写真をドラッグ＆ドロップ または <label className="text-blue-600 underline cursor-pointer">
-            <input type="file" multiple accept="image/*" onChange={e => setFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="hidden" /> 選択
-          </label></p>
+          <p className="text-2xl mb-6">
+            写真をドラッグ＆ドロップ または{" "}
+            <label className="text-blue-600 underline cursor-pointer">
+              <input type="file" multiple accept="image/*" onChange={e => setFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="hidden" /> 選択
+            </label>
+          </p>
         </div>
 
         <div className="grid grid-cols-4 gap-6 mb-10">
           {files.map((f, i) => (
             <div key={i} className="relative group">
-              <img src={URL.createObjectURL(f)} alt={f.name || ""} className="w-full h-48 object-contain bg-white rounded-2xl border shadow" />
+              <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-48 object-contain bg-white rounded-2xl border shadow" />
               <button onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))} className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-10 h-10 opacity-0 group-hover:opacity-100">×</button>
             </div>
           ))}
@@ -260,6 +312,7 @@ export default function AdminMenu() {
         </div>
       </div>
 
+      {/* Список товаров */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10 max-w-7xl mx-auto">
         {products.map(p => (
           <div key={p.id} className="bg-white rounded-3xl shadow-2xl overflow-hidden">
