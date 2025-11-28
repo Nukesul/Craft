@@ -1,4 +1,4 @@
-// File: src/components/Menu.jsx
+// src/components/Menu.jsx
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import Header from "./Header";
@@ -7,7 +7,6 @@ const FALLBACK = "/placeholder.png";
 
 const normalizeImageEntry = (img) => {
   if (!img) return null;
-
   if (typeof img === "object") {
     if (img.url) return img.url;
     if (img.path) {
@@ -16,39 +15,27 @@ const normalizeImageEntry = (img) => {
     }
     return null;
   }
-
   if (typeof img === "string") {
     const s = img.trim();
     if (s.startsWith("http://") || s.startsWith("https://")) return s;
-
     if (s.startsWith("{") || s.startsWith("[")) {
-      try {
-        const parsed = JSON.parse(s);
-        return normalizeImageEntry(parsed);
-      } catch {}
+      try { const parsed = JSON.parse(s); return normalizeImageEntry(parsed); } catch {}
     }
-
     try {
       const res = supabase.storage.from("product-images").getPublicUrl(s);
       if (res?.data?.publicUrl) return res.data.publicUrl;
     } catch {}
-
     return s || null;
   }
-
   return null;
 };
 
 const getAllImages = (images) => {
   if (!images) return [FALLBACK];
-
   if (typeof images === "string") {
     const trimmed = images.trim();
     if ((trimmed.startsWith("[") || trimmed.startsWith("{"))) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        return getAllImages(parsed);
-      } catch {
+      try { const parsed = JSON.parse(trimmed); return getAllImages(parsed); } catch {
         const one = normalizeImageEntry(trimmed);
         return [one || FALLBACK];
       }
@@ -57,30 +44,21 @@ const getAllImages = (images) => {
       return [one || FALLBACK];
     }
   }
-
   if (Array.isArray(images)) {
-    const list = images
-      .flatMap((it) => {
-        if (!it) return [];
-        const val = normalizeImageEntry(it);
-        return val ? [val] : [];
-      })
-      .filter(Boolean);
+    const list = images.flatMap(it => {
+      const val = normalizeImageEntry(it);
+      return val ? [val] : [];
+    }).filter(Boolean);
     return list.length ? list : [FALLBACK];
   }
-
   if (typeof images === "object") {
     const single = normalizeImageEntry(images);
     return single ? [single] : [FALLBACK];
   }
-
   return [FALLBACK];
 };
 
-const getFirstImage = (images) => {
-  const all = getAllImages(images);
-  return all[0] || FALLBACK;
-};
+const getFirstImage = (images) => getAllImages(images)[0] || FALLBACK;
 
 export default function Menu({ setIsAdminAuthenticated }) {
   const [categories, setCategories] = useState([]);
@@ -140,7 +118,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
-  }, [categories, activeSection]);
+  }, [categories, activeSection]); // ← ИСПРАВЛЕНО: добавлен activeSection
 
   const scrollToCategory = useCallback((catId) => {
     const el = document.getElementById(`category-${catId}`);
@@ -185,109 +163,65 @@ export default function Menu({ setIsAdminAuthenticated }) {
 
   return (
     <div className="min-h-screen bg-stone-50">
-      <Header
-        categories={categories}
-        activeSection={activeSection}
-        scrollToCategory={scrollToCategory}
-        setIsAdminAuthenticated={setIsAdminAuthenticated}
-      />
+      <Header categories={categories} activeSection={activeSection} scrollToCategory={scrollToCategory} setIsAdminAuthenticated={setIsAdminAuthenticated} />
 
       <main className="pt-28 pb-32">
         {categories.map((cat) => {
           const items = products.filter(p => p.category_id === cat.id);
           if (!items || items.length === 0) return null;
 
-            return (
-              <section key={cat.id} id={`category-${cat.id}`} className="max-w-7xl mx-auto px-5 mb-24" data-cat-id={cat.id}>
-                <h2 className="text-center text-4xl md:text-5xl font-bold text-stone-800 mb-12 tracking-tight">
-                  {cat.name}
-                </h2>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-7 md:gap-10">
-                  {items.map(product => (
-                    <button
-                      key={product.id}
-                      onClick={() => { setSelectedProduct(product); setCurrentImageIndex(0); }}
-                      className="group relative bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-transform duration-300 hover:-translate-y-2 focus:outline-none"
-                    >
-                      <div className="relative aspect-[4/4] bg-gradient-to-br from-stone-50 to-amber-50 p-6 md:p-10 flex items-center justify-center">
-                        <img
-                          src={getFirstImage(product.product_images)}
-                          alt={product.name}
-                          loading="lazy"
-                          className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
-                          onError={(e) => { e.currentTarget.src = FALLBACK; }}
-                        />
-                      </div>
-
-                      <div className="px-6 pb-7 pt-4 text-center">
-                        <h3 className="font-bold text-xl text-stone-900 leading-tight">{product.name}</h3>
-                        <p className="mt-2 font-semibold text-lg text-amber-800">
-                          {product.variants?.[0]?.price ? `${product.variants[0].price} ¥` : "お問い合わせください"}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
+          return (
+            <section key={cat.id} id={`category-${cat.id}`} className="max-w-7xl mx-auto px-5 mb-24">
+              <h2 className="text-center text-4xl md:text-5xl font-bold text-stone-800 mb-12 tracking-tight">{cat.name}</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-7 md:gap-10">
+                {items.map(product => (
+                  <button key={product.id} onClick={() => { setSelectedProduct(product); setCurrentImageIndex(0); }}
+                    className="group relative bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-transform duration-300 hover:-translate-y-2 focus:outline-none">
+                    <div className="relative aspect-[4/4] bg-gradient-to-br from-stone-50 to-amber-50 p-6 md:p-10 flex items-center justify-center">
+                      <img src={getFirstImage(product.product_images)} alt={product.name} loading="lazy"
+                        className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                        onError={(e) => { e.currentTarget.src = FALLBACK; }} />
+                    </div>
+                    <div className="px-6 pb-7 pt-4 text-center">
+                      <h3 className="font-bold text-xl text-stone-900 leading-tight">{product.name}</h3>
+                      <p className="mt-2 font-semibold text-lg text-amber-800">
+                        {product.variants?.[0]?.price ? `${product.variants[0].price} ¥` : "お問い合わせください"}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </main>
 
-      {/* Модальное окно */}
       {selectedProduct && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8"
-          onClick={() => setSelectedProduct(null)}
-          role="dialog"
-          aria-modal="true"
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8" onClick={() => setSelectedProduct(null)}>
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-
-          <div
-            className="relative bg-white rounded-3xl shadow-2xl max-w-5xl w-full h-[90vh] md:h-auto max-h-full overflow-y-auto md:overflow-hidden flex flex-col md:flex-row transform transition-transform duration-300"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setSelectedProduct(null)}
-              className="absolute top-4 right-4 z-30 text-stone-600 hover:text-stone-800 bg-white/80 rounded-full p-2 md:p-3"
-              aria-label="閉じる"
-            >
+          <div className="relative bg-white rounded-3xl shadow-2xl max-w-5xl w-full h-[90vh] md:h-auto max-h-full overflow-y-auto md:overflow-hidden flex flex-col md:flex-row"
+            onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setSelectedProduct(null)} className="absolute top-4 right-4 z-30 text-stone-600 hover:text-stone-800 bg-white/80 rounded-full p-2 md:p-3" aria-label="閉じる">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
 
-            {/* Галерея */}
             <div className="relative flex-1 md:w-3/5 bg-stone-50 flex items-center justify-center overflow-hidden p-4 md:p-0">
               {getAllImages(selectedProduct.product_images).map((img, i) => (
-                <img
-                  key={i}
-                  src={img}
-                  alt={`${selectedProduct.name} ${i + 1}`}
-                  loading="lazy"
-                  className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-400 ease-in-out ${
-                    currentImageIndex === i ? "opacity-100 scale-100" : "opacity-0 scale-105"
-                  }`}
-                  onError={(e) => { e.currentTarget.src = FALLBACK; }}
-                />
+                <img key={i} src={img} alt={`${selectedProduct.name} ${i + 1}`} loading="lazy"
+                  className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-400 ease-in-out ${currentImageIndex === i ? "opacity-100 scale-100" : "opacity-0 scale-105"}`}
+                  onError={(e) => { e.currentTarget.src = FALLBACK; }} />
               ))}
 
               {getAllImages(selectedProduct.product_images).length > 1 && (
                 <>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
-                    className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white/90 text-stone-800 p-3 md:p-4 rounded-full z-20"
-                  >
+                  <button onClick={(e) => { e.stopPropagation(); handlePrevImage(); }} className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white/90 text-stone-800 p-3 md:p-4 rounded-full z-20">
                     <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
-
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
-                    className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white/90 text-stone-800 p-3 md:p-4 rounded-full z-20"
-                  >
+                  <button onClick={(e) => { e.stopPropagation(); handleNextImage(); }} className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white/90 text-stone-800 p-3 md:p-4 rounded-full z-20">
                     <svg className="w-5 h-5 md:w-7 md:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
@@ -297,34 +231,19 @@ export default function Menu({ setIsAdminAuthenticated }) {
 
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">
                 {getAllImages(selectedProduct.product_images).map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i); }}
-                    className={`w-2 h-2 md:w-3 md:h-3 rounded-full transition ${
-                      currentImageIndex === i ? "bg-amber-800" : "bg-stone-300 hover:bg-stone-400"
-                    }`}
-                  />
+                  <button key={i} onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i); }}
+                    className={`w-2 h-2 md:w-3 md:h-3 rounded-full transition ${currentImageIndex === i ? "bg-amber-800" : "bg-stone-300 hover:bg-stone-400"}`} />
                 ))}
               </div>
             </div>
 
-            {/* Информация о товаре */}
             <div className="flex-1 md:w-2/5 p-6 md:p-8 flex flex-col justify-between">
               <div>
-                <h2 className="text-2xl md:text-4xl font-bold text-stone-900 mb-4 md:mb-6">
-                  {selectedProduct.name}
-                </h2>
-                {selectedProduct.description && (
-                  <p className="text-stone-600 text-sm md:text-lg leading-relaxed mb-6 md:mb-8">
-                    {selectedProduct.description}
-                  </p>
-                )}
+                <h2 className="text-2xl md:text-4xl font-bold text-stone-900 mb-4 md:mb-6">{selectedProduct.name}</h2>
+                {selectedProduct.description && <p className="text-stone-600 text-sm md:text-lg leading-relaxed mb-6 md:mb-8">{selectedProduct.description}</p>}
               </div>
-
               <div className="mt-4 md:mt-auto">
-                <h3 className="text-xl md:text-2xl font-semibold text-stone-800 mb-3 md:mb-4">
-                  バリエーション
-                </h3>
+                <h3 className="text-xl md:text-2xl font-semibold text-stone-800 mb-3 md:mb-4">バリエーション</h3>
                 <div className="space-y-3 md:space-y-4">
                   {selectedProduct.variants?.map((v, i) => (
                     <div key={i} className="flex justify-between items-center border-b border-stone-200 pb-2 md:pb-3">

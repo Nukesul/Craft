@@ -1,4 +1,4 @@
-// File: src/components/Header.jsx
+// src/components/Header.jsx
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../logo.jpg";
@@ -13,7 +13,6 @@ export default function Header({
   const [password, setPassword] = useState("");
 
   const navigate = useNavigate();
-
   const mobileRef = useRef(null);
   const desktopRef = useRef(null);
   const categoryRefs = useRef({});
@@ -86,7 +85,6 @@ export default function Header({
           </div>
         </nav>
 
-        {/* Mobile */}
         <nav ref={mobileRef} className="lg:hidden flex overflow-x-auto no-scrollbar flex-nowrap gap-3 px-4 pb-3 pt-1 border-t border-white/30">
           {categories.map(cat => (
             <button
@@ -105,9 +103,7 @@ export default function Header({
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowPassword(false)}>
           <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-xs" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-center mb-4">管理者ログイン</h3>
-
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdminEnter()} placeholder="パスワード" className="w-full px-4 py-3 border rounded-lg focus:border-amber-500 outline-none" />
-
             <div className="flex gap-3 mt-5">
               <button onClick={handleAdminEnter} className="flex-1 bg-amber-500 text-white py-3 rounded-lg hover:bg-amber-600">ログイン</button>
               <button onClick={() => { setShowPassword(false); setPassword(""); }} className="flex-1 bg-gray-200 py-3 rounded-lg hover:bg-gray-300">キャンセル</button>
