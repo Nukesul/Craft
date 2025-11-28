@@ -3,14 +3,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import Header from "./Header";
 
-/* Placeholder (положи public/placeholder.png или оставь этот внешний) */
-const FALLBACK = "/placeholder.png"; // или "https://via.placeholder.com/800"
+/* プレースホルダー画像 */
+const FALLBACK = "/placeholder.png";
 
-/* Универсальная нормализация одного img entry */
+/* 画像エントリの正規化 */
 const normalizeImageEntry = (img) => {
   if (!img) return null;
 
-  // объект { url, path }
   if (typeof img === "object") {
     if (img.url) return img.url;
     if (img.path) {
@@ -20,44 +19,32 @@ const normalizeImageEntry = (img) => {
     return null;
   }
 
-  // строка
   if (typeof img === "string") {
     const s = img.trim();
-
-    // если это полная ссылка
     if (s.startsWith("http://") || s.startsWith("https://")) return s;
-
-    // если JSON-строка
     if (s.startsWith("{") || s.startsWith("[")) {
       try {
         const parsed = JSON.parse(s);
         return normalizeImageEntry(parsed);
-      } catch {
-        // упадёт в следующий блок — попробуем как файл
-      }
+      } catch {}
     }
-
-    // похоже на путь/имя файла в storage
     try {
       const res = supabase.storage.from("product-images").getPublicUrl(s);
       if (res?.data?.publicUrl) return res.data.publicUrl;
-    } catch {
-      // fallthrough
-    }
-
+    } catch {}
     return s || null;
   }
 
   return null;
 };
 
-/* Возвращает массив валидных url'ов */
+/* 有効な画像URLの配列を返す */
 const getAllImages = (images) => {
   if (!images) return [FALLBACK];
 
   if (typeof images === "string") {
     const trimmed = images.trim();
-    if ((trimmed.startsWith("[") || trimmed.startsWith("{"))) {
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
       try {
         const parsed = JSON.parse(trimmed);
         return getAllImages(parsed);
@@ -75,11 +62,8 @@ const getAllImages = (images) => {
     const list = images
       .flatMap((it) => {
         if (!it) return [];
-        if (typeof it === "string" || typeof it === "object") {
-          const val = normalizeImageEntry(it);
-          return val ? [val] : [];
-        }
-        return [];
+        const val = normalizeImageEntry(it);
+        return val ? [val] : [];
       })
       .filter(Boolean);
     return list.length ? list : [FALLBACK];
@@ -108,7 +92,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
   const rafTick = useRef(false);
   const headerOffset = 120;
 
-  // Загрузка категорий и продуктов
+  // カテゴリと商品の読み込み
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -120,14 +104,14 @@ export default function Menu({ setIsAdminAuthenticated }) {
         setProducts(prods || []);
         if (cats?.length > 0 && !activeSection) setActiveSection(cats[0].id);
       } catch (err) {
-        console.error("load error", err);
+        console.error("読み込みエラー", err);
       }
     };
     load();
     return () => { mounted = false; };
-  }, [activeSection]); // исправлено
+  }, [activeSection]);
 
-  // Оптимизированный scroll handler (rAF)
+  // スクロール位置に応じたアクティブセクション更新
   useEffect(() => {
     if (!categories || categories.length === 0) return;
 
@@ -158,7 +142,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     return () => window.removeEventListener("scroll", onScroll);
-  }, [categories, activeSection]); // исправлено
+  }, [categories, activeSection]);
 
   const scrollToCategory = useCallback((catId) => {
     const el = document.getElementById(`category-${catId}`);
@@ -168,24 +152,23 @@ export default function Menu({ setIsAdminAuthenticated }) {
     window.scrollTo({ top, behavior: "smooth" });
   }, []);
 
-  // Модал: блокировка прокрутки при открытии
+  // モーダル開時スクロール無効化
   useEffect(() => {
     document.body.style.overflow = selectedProduct ? "hidden" : "";
     if (!selectedProduct) setCurrentImageIndex(0);
     return () => { document.body.style.overflow = ""; };
   }, [selectedProduct]);
 
-  // Клавиши навигации в модалке и предзагрузка соседних
+  // キーボード操作 + 画像プリロード
   useEffect(() => {
     if (!selectedProduct) return;
     const imgs = getAllImages(selectedProduct.product_images);
-    const preload = (url) => { if (!url) return; const i = new Image(); i.src = url; };
+    const preload = (url) => { if (url) new Image().src = url; };
     const next = (currentImageIndex + 1) % imgs.length;
     const prev = (currentImageIndex - 1 + imgs.length) % imgs.length;
     preload(imgs[next]); preload(imgs[prev]);
 
     const onKey = (e) => {
-      if (!selectedProduct) return;
       if (e.key === "Escape") setSelectedProduct(null);
       if (e.key === "ArrowLeft") setCurrentImageIndex(i => (i - 1 + imgs.length) % imgs.length);
       if (e.key === "ArrowRight") setCurrentImageIndex(i => (i + 1) % imgs.length);
@@ -196,11 +179,12 @@ export default function Menu({ setIsAdminAuthenticated }) {
 
   const handlePrevImage = () => {
     const imgs = getAllImages(selectedProduct?.product_images || []);
-    setCurrentImageIndex((prev) => (prev - 1 + imgs.length) % imgs.length);
+    setCurrentImageIndex(prev => (prev - 1 + imgs.length) % imgs.length);
   };
+
   const handleNextImage = () => {
     const imgs = getAllImages(selectedProduct?.product_images || []);
-    setCurrentImageIndex((prev) => (prev + 1) % imgs.length);
+    setCurrentImageIndex(prev => (prev + 1) % imgs.length);
   };
 
   return (
@@ -218,7 +202,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
           if (!items || items.length === 0) return null;
 
           return (
-            <section key={cat.id} id={`category-${cat.id}`} className="max-w-7xl mx-auto px-5 mb-24" data-cat-id={cat.id}>
+            <section key={cat.id} id={`category-${cat.id}`} className="max-w-7xl mx-auto px-5 mb-24">
               <h2 className="text-center text-4xl md:text-5xl font-bold text-stone-800 mb-12 tracking-tight">{cat.name}</h2>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-7 md:gap-10">
@@ -241,7 +225,7 @@ export default function Menu({ setIsAdminAuthenticated }) {
                     <div className="px-6 pb-7 pt-4 text-center">
                       <h3 className="font-bold text-xl text-stone-900 leading-tight">{product.name}</h3>
                       <p className="mt-2 font-semibold text-lg text-amber-800">
-                        {product.variants?.[0]?.price ? `${product.variants[0].price} ₽` : "По запросу"}
+                        {product.variants?.[0]?.price ? `${product.variants[0].price} ¥` : "お問い合わせください"}
                       </p>
                     </div>
                   </button>
@@ -252,24 +236,19 @@ export default function Menu({ setIsAdminAuthenticated }) {
         })}
       </main>
 
-      {/* Modal */}
+      {/* 商品詳細モーダル */}
       {selectedProduct && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8"
-          onClick={() => setSelectedProduct(null)}
-          role="dialog"
-          aria-modal="true"
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8" onClick={() => setSelectedProduct(null)}>
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
           <div
-            className="relative bg-white rounded-3xl shadow-2xl max-w-5xl w-full h-[90vh] md:h-auto max-h-full overflow-y-auto md:overflow-hidden flex flex-col md:flex-row transform transition-transform duration-300"
+            className="relative bg-white rounded-3xl shadow-2xl max-w-5xl w-full h-[90vh] md:h-auto max-h-full overflow-y-auto md:overflow-hidden flex flex-col md:flex-row"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setSelectedProduct(null)}
               className="absolute top-4 right-4 z-30 text-stone-600 hover:text-stone-800 bg-white/80 rounded-full p-2 md:p-3"
-              aria-label="Закрыть"
+              aria-label="閉じる"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -306,7 +285,11 @@ export default function Menu({ setIsAdminAuthenticated }) {
 
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">
                 {getAllImages(selectedProduct.product_images).map((_, i) => (
-                  <button key={i} onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i); }} className={`w-2 h-2 md:w-3 md:h-3 rounded-full transition ${currentImageIndex === i ? "bg-amber-800" : "bg-stone-300 hover:bg-stone-400"}`} />
+                  <button
+                    key={i}
+                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i); }}
+                    className={`w-2 h-2 md:w-3 md:h-3 rounded-full transition ${currentImageIndex === i ? "bg-amber-800" : "bg-stone-300 hover:bg-stone-400"}`}
+                  />
                 ))}
               </div>
             </div>
@@ -314,18 +297,20 @@ export default function Menu({ setIsAdminAuthenticated }) {
             <div className="flex-1 md:w-2/5 p-6 md:p-8 flex flex-col justify-between">
               <div>
                 <h2 className="text-2xl md:text-4xl font-bold text-stone-900 mb-4 md:mb-6">{selectedProduct.name}</h2>
-                {selectedProduct.description && <p className="text-stone-600 text-sm md:text-lg leading-relaxed mb-6 md:mb-8">{selectedProduct.description}</p>}
+                {selectedProduct.description && (
+                  <p className="text-stone-600 text-sm md:text-lg leading-relaxed mb-6 md:mb-8">{selectedProduct.description}</p>
+                )}
               </div>
 
               <div className="mt-4 md:mt-auto">
-                <h3 className="text-xl md:text-2xl font-semibold text-stone-800 mb-3 md:mb-4">Варианты</h3>
+                <h3 className="text-xl md:text-2xl font-semibold text-stone-800 mb-3 md:mb-4">バリエーション</h3>
                 <div className="space-y-3 md:space-y-4">
                   {selectedProduct.variants?.map((v, i) => (
                     <div key={i} className="flex justify-between items-center border-b border-stone-200 pb-2 md:pb-3">
                       <span className="text-stone-600 font-medium text-sm md:text-base">{v.size}</span>
-                      <span className="font-bold text-xl md:text-2xl text-amber-800">{v.price} ₽</span>
+                      <span className="font-bold text-xl md:text-2xl text-amber-800">{v.price} ¥</span>
                     </div>
-                  )) || <p className="text-stone-500">Варианты отсутствуют</p>}
+                  )) || <p className="text-stone-500">バリエーションはありません</p>}
                 </div>
               </div>
             </div>
