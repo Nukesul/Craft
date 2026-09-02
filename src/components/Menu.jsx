@@ -26,12 +26,12 @@ const normalizeImageEntry = (img) => {
       try {
         const parsed = JSON.parse(s);
         return normalizeImageEntry(parsed);
-      } catch {}
+      } catch { }
     }
     try {
       const res = supabase.storage.from("product-images").getPublicUrl(s);
       if (res?.data?.publicUrl) return res.data.publicUrl;
-    } catch {}
+    } catch { }
     return s || null;
   }
 
