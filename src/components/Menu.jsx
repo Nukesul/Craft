@@ -82,7 +82,7 @@ const getFirstImage = (images) => {
   return all[0] || FALLBACK;
 };
 
-export default function Menu({ setIsAdminAuthenticated }) {
+export default function Menu() {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [activeSection, setActiveSection] = useState(null);
@@ -193,7 +193,6 @@ export default function Menu({ setIsAdminAuthenticated }) {
         categories={categories}
         activeSection={activeSection}
         scrollToCategory={scrollToCategory}
-        setIsAdminAuthenticated={setIsAdminAuthenticated}
       />
 
       <main className="pt-28 pb-32">

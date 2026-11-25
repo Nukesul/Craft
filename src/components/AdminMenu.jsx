@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { supabaseAdmin } from "../lib/supabaseAdmin";
 
 export default function AdminMenu() {
   const [categories, setCategories] = useState([]);
@@ -72,9 +71,9 @@ export default function AdminMenu() {
   const uploadImage = async (file) => {
     const fileExt = file.name.split(".").pop();
     const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-    const { error } = await supabaseAdmin.storage.from("product-images").upload(fileName, file, { upsert: true });
+    const { error } = await supabase.storage.from("product-images").upload(fileName, file, { upsert: true });
     if (error) throw error;
-    const { data: { publicUrl } } = supabaseAdmin.storage.from("product-images").getPublicUrl(fileName);
+    const { data: { publicUrl } } = supabase.storage.from("product-images").getPublicUrl(fileName);
     return { url: publicUrl, path: fileName };
   };
 
@@ -88,7 +87,7 @@ export default function AdminMenu() {
       const uploaded = [];
       for (const file of files) uploaded.push(await uploadImage(file));
 
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await supabase
         .from("products")
         .insert([{
           name: form.name.trim(),
@@ -135,7 +134,7 @@ export default function AdminMenu() {
       for (const file of files) newImages.push(await uploadImage(file));
       const finalImages = [...existingImages, ...newImages];
 
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from("products")
         .update({
           name: form.name.trim(),
@@ -179,8 +178,8 @@ export default function AdminMenu() {
     setDeletingId(product.id);
     try {
       const paths = extractPaths(product.product_images || []);
-      if (paths.length > 0) await supabaseAdmin.storage.from("product-images").remove(paths);
-      await supabaseAdmin.from("products").delete().eq("id", product.id);
+      if (paths.length > 0) await supabase.storage.from("product-images").remove(paths);
+      await supabase.from("products").delete().eq("id", product.id);
       setProducts(prev => prev.filter(p => p.id !== product.id));
       alert("削除しました！");
     } catch (err) {
@@ -193,7 +192,7 @@ export default function AdminMenu() {
   const addCategory = async () => {
     const name = newCategory.trim();
     if (!name) return alert("カテゴリー名を入力してください");
-    const { data } = await supabaseAdmin.from("categories").insert([{ name }]).select().single();
+    const { data } = await supabase.from("categories").insert([{ name }]).select().single();
     setCategories(prev => [...prev, data]);
     setNewCategory("");
   };
@@ -201,7 +200,7 @@ export default function AdminMenu() {
   const deleteCategory = async (cat) => {
     if (products.some(p => p.category_id === cat.id)) return alert("このカテゴリーには商品があります！");
     if (!window.confirm(`「${cat.name}」を削除しますか？`)) return;
-    await supabaseAdmin.from("categories").delete().eq("id", cat.id);
+    await supabase.from("categories").delete().eq("id", cat.id);
     setCategories(prev => prev.filter(c => c.id !== cat.id));
   };
 

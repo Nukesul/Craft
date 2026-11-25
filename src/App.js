@@ -1,16 +1,28 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import Menu from "./components/Menu";
 import AdminMenu from "./components/AdminMenu";
-import { useState } from "react";
+import { supabase } from "./lib/supabase";
 
 function App() {
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [session, setSession] = useState(undefined); // undefined = still loading
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Menu setIsAdminAuthenticated={setIsAdminAuthenticated} />} />
-        <Route path="/admin" element={isAdminAuthenticated ? <AdminMenu /> : <Navigate to="/" />} />
+        <Route path="/" element={<Menu />} />
+        <Route
+          path="/admin"
+          element={
+            session === undefined ? null : session ? <AdminMenu /> : <Navigate to="/" />
+          }
+        />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>

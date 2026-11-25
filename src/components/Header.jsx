@@ -2,15 +2,18 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../logo.jpg";
+import { supabase } from "../lib/supabase";
 
 export default function Header({
   categories = [],
   activeSection,
-  scrollToCategory,
-  setIsAdminAuthenticated
+  scrollToCategory
 }) {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [signingIn, setSigningIn] = useState(false);
 
   const navigate = useNavigate();
 
@@ -18,16 +21,21 @@ export default function Header({
   const desktopRef = useRef(null);
   const categoryRefs = useRef({});
 
-  const handleAdminEnter = () => {
-    if (password === "bakery") {
-      setIsAdminAuthenticated(true);
-      navigate("/admin");
-      setShowPassword(false);
+  const handleAdminEnter = async () => {
+    if (!email.trim() || !password) return;
+    setSigningIn(true);
+    setAuthError("");
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    setSigningIn(false);
+    if (error) {
+      setAuthError("メールアドレスまたはパスワードが間違っています");
       setPassword("");
-    } else {
-      alert("パスワードが間違っています");
-      setPassword("");
+      return;
     }
+    setShowPassword(false);
+    setEmail("");
+    setPassword("");
+    navigate("/admin");
   };
 
   useEffect(() => {
@@ -106,17 +114,27 @@ export default function Header({
           <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-xs" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-center mb-4">管理者ログイン</h3>
 
-            <input 
-              type="password" 
-              value={password} 
-              onChange={e => setPassword(e.target.value)} 
-              onKeyDown={e => e.key === "Enter" && handleAdminEnter()} 
-              placeholder="パスワード" 
-              className="w-full px-4 py-3 border rounded-lg focus:border-amber-500 outline-none" 
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="メールアドレス"
+              autoComplete="username"
+              className="w-full px-4 py-3 border rounded-lg focus:border-amber-500 outline-none mb-3"
             />
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleAdminEnter()}
+              placeholder="パスワード"
+              autoComplete="current-password"
+              className="w-full px-4 py-3 border rounded-lg focus:border-amber-500 outline-none"
+            />
+            {authError && <p className="text-red-600 text-sm mt-3 text-center">{authError}</p>}
             <div className="flex gap-3 mt-5">
-              <button onClick={handleAdminEnter} className="flex-1 bg-amber-500 text-white py-3 rounded-lg hover:bg-amber-600">ログイン</button>
-              <button onClick={() => { setShowPassword(false); setPassword(""); }} className="flex-1 bg-gray-200 py-3 rounded-lg hover:bg-gray-300">キャンセル</button>
+              <button onClick={handleAdminEnter} disabled={signingIn} className="flex-1 bg-amber-500 text-white py-3 rounded-lg hover:bg-amber-600 disabled:opacity-60">{signingIn ? "…" : "ログイン"}</button>
+              <button onClick={() => { setShowPassword(false); setEmail(""); setPassword(""); setAuthError(""); }} className="flex-1 bg-gray-200 py-3 rounded-lg hover:bg-gray-300">キャンセル</button>
             </div>
           </div>
         </div>
